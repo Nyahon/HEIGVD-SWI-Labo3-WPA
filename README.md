@@ -10,6 +10,12 @@
 
 __A faire en équipes de deux personnes__
 
+###### Par: Johanna Melly & Yohann meyer
+
+## Remarques labo:
+
+Nous avons récupéré le code fourni pour les 2 étapes (fichiers précisés à chaque étape) et nous avons signalé les modifications apportées en commentaire.
+
 ### Pour cette partie pratique, vous devez être capable de :
 
 * Extraire à partir d’une capture Wireshark les données nécessaires pour dériver les clés de chiffrement et intégrité WPA utilisant Scapy
@@ -31,6 +37,8 @@ et de garder la fenêtre d'airodump ouverte en permanence pendant que vos script
 
 ### 1. Obtention des paramètres pour la dérivation des clés WPA  
 
+**Le fichier concernant cette étape est nommé `step1.py`**
+
 Dans cette première partie, vous allez récupérer le script Python [wpa_key_derivation.py](https://github.com/arubinst/HEIGVD-SWI-Labo3-WPA/blob/master/files/). Il vous faudra également le fichier de capture [wpa_handshake.cap](https://github.com/arubinst/HEIGVD-SWI-Labo3-WPA/blob/master/files/) contenant un processus d’authentification WPA. Vous aurez aussi besoin du fichier [pbkdf2_math.py](https://github.com/arubinst/HEIGVD-SWI-Labo3-WPA/blob/master/files/), qui permet de calculer les 4096 tours pour le hash de la passphrase. Tous ces fichiers doivent être copiés dans le même répertoire local sur vos machines.
 
 - Ouvrir le fichier de capture [wpa_key_derivation.py](https://github.com/arubinst/HEIGVD-SWI-Labo3-WPA/blob/master/files/) avec Wireshark
@@ -41,6 +49,8 @@ Dans cette première partie, vous allez récupérer le script Python [wpa_key_de
 
 
 ### 2. Scaircrack (aircrack basé sur Scapy)
+
+**Le fichier concernant cette étape est nommé `scaircrack.py`**
 
 Aircrack utilise le quatrième message du 4-way handshake pour tester les passphrases contenues dans un dictionnaire. Ce message ne contient pas de données chiffrées mais il est authentifié avec un MIC qui peut être exploité comme « oracle » pour tester des clés différentes obtenues des passphrases du dictionnaire.
 
@@ -55,6 +65,8 @@ Utilisant le script [wpa_key_derivation.py](https://github.com/arubinst/HEIGVD-S
    - Identiques &rarr; La passphrase utilisée est correcte
    - Différents &rarr; Essayer avec une nouvelle passphrase
 
+![Script en action](files/scaircrack.png)
+
 
 ### 3. Scairodump (Bonus)
 
@@ -66,7 +78,7 @@ Modifier votre script de cracking pour qu’il soit capable de faire les mêmes 
 
 - Le dernier message du 4-way handshake contient un MIC dans sa payload. Pour calculer vous-même votre MIC, vous devez mettre les octets du MIC dans cette payload à ```\x00```
 - Le calcul du MIC peut utiliser MD5 (WPA) ou SHA-1 (WPA2). Le 4-way handshake contient les informations nécessaires dans le champ Key Information
-- La commande ```b2a_hex(variable)``` est équivalente à ```variable.encode("hex")``` - retourne un string avec la representation hexadécimal des données binaires contenues dans ```variable```. Chaque octet contenu dans ```variable``` est donc converti en sa representation hex à deux caractères correspondante.  
+- La commande ```b2a_hex(variable)``` est équivalente à ```variable.encode("hex")``` - retourne un string avec la représentation hexadécimal des données binaires contenues dans ```variable```. Chaque octet contenu dans ```variable``` est donc converti en sa representation hex à deux caractères correspondante.  
 - La commande ```a2b_hex(variable)``` est équivalente à ```variable.decode("hex")``` - cette fonction est l'inverse de ```b2a_hex(variable)```
 
 

